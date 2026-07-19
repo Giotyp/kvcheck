@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from kvcheck.config import Thresholds
 from kvcheck.report import Summary, summarize, verdict, write_json
 from kvcheck.runner import RunResult
@@ -18,12 +20,27 @@ def rec(rid, *, exact, flips=0, n=3, kl=0.0) -> DivergenceRecord:
     )
 
 
-def make_result(records, floor_records) -> RunResult:
+def make_result(records, floor_records, golden_acc=None, test_acc=None) -> RunResult:
     return RunResult(
         reference=[], calibration=[], test=[],
         records=records, floor_records=floor_records,
         engine_versions={"golden": "v1", "test": "v1"},
+        golden_accuracy=golden_acc, test_accuracy=test_acc,
     )
+
+
+def test_summarize_accuracy_drop():
+    records = [rec("a", exact=True)]
+    s = summarize(make_result(records, records, golden_acc=0.8, test_acc=0.7))
+    assert s.golden_accuracy == 0.8
+    assert s.test_accuracy == 0.7
+    assert s.accuracy_drop == pytest.approx(0.1)
+
+
+def test_summarize_accuracy_drop_none_when_ungraded():
+    records = [rec("a", exact=True)]
+    s = summarize(make_result(records, records))
+    assert s.accuracy_drop is None
 
 
 # ---- summarize (implemented) -------------------------------------------
@@ -80,6 +97,37 @@ def test_small_excess_within_margin_passes():
     floor = [rec(f"r{i}", exact=True) for i in range(20)]  # 0 floor
     s = summarize(make_result(records, floor))
     assert verdict(s, base_thresholds()) is True  # excess 0.05 == threshold
+
+
+def thresholds_both():
+    return Thresholds(max_divergence_rate_above_floor=0.05, max_accuracy_drop=0.02)
+
+
+def test_accuracy_drop_above_threshold_fails():
+    # divergence is within the floor (would pass on its own) but accuracy fell 10pts
+    records = [rec("a", exact=True)]
+    s = summarize(make_result(records, records, golden_acc=0.80, test_acc=0.70))
+    assert verdict(s, thresholds_both()) is False
+
+
+def test_small_accuracy_drop_passes():
+    records = [rec("a", exact=True)]
+    s = summarize(make_result(records, records, golden_acc=0.80, test_acc=0.79))
+    assert verdict(s, thresholds_both()) is True
+
+
+def test_none_accuracy_drop_is_ignored():
+    # ungraded suite: accuracy_drop is None -> verdict decided by divergence alone
+    records = [rec("a", exact=True)]
+    s = summarize(make_result(records, records))  # no accuracy
+    assert verdict(s, thresholds_both()) is True
+
+
+def test_accuracy_improvement_never_fails():
+    # test config happened to score higher; negative drop must not fail the run
+    records = [rec("a", exact=True)]
+    s = summarize(make_result(records, records, golden_acc=0.70, test_acc=0.90))
+    assert verdict(s, thresholds_both()) is True
 
 
 # ---- write_json (implemented) ------------------------------------------

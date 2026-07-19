@@ -36,6 +36,8 @@ class RunResult:
     records: list[DivergenceRecord]  # test vs reference, scored requests only
     floor_records: list[DivergenceRecord]  # calibration vs reference, scored only
     engine_versions: dict[str, str]
+    golden_accuracy: float | None = None  # None for ungraded suites
+    test_accuracy: float | None = None
 
 
 # ---- Completion (de)serialization for the on-disk golden cache -----------
@@ -69,6 +71,21 @@ def _compare(
     ref = {c.request_id: c for c in reference}
     oth = {c.request_id: c for c in other}
     return [token_divergence(ref[rid], oth[rid]) for rid in sorted(scored_ids)]
+
+
+def _accuracy(
+    suite: PromptSuite, completions: list[Completion], scored_ids: set[str]
+) -> float | None:
+    """Mean grade over scored requests, or None if the suite grades nothing."""
+    by_id = {c.request_id: c for c in completions}
+    grades = [
+        g
+        for rid in scored_ids
+        if (g := suite.grade(rid, by_id[rid])) is not None
+    ]
+    if not grades:
+        return None
+    return sum(grades) / len(grades)
 
 
 def _load_or_run_golden(
@@ -127,4 +144,6 @@ def run(
         records=_compare(reference, test_out, scored_ids),
         floor_records=_compare(reference, calibration, scored_ids),
         engine_versions={"golden": gver, "test": tver},
+        golden_accuracy=_accuracy(suite, reference, scored_ids),
+        test_accuracy=_accuracy(suite, test_out, scored_ids),
     )

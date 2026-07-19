@@ -25,6 +25,9 @@ class Summary:
     mean_kl: float  # position-weighted mean top-k KL
     floor_divergence_rate: float  # same fraction, calibration vs reference
     floor_mean_kl: float
+    golden_accuracy: float | None = None  # task accuracy, None for ungraded suites
+    test_accuracy: float | None = None
+    accuracy_drop: float | None = None  # golden_accuracy - test_accuracy
 
 
 def _divergence_rate(records: list[DivergenceRecord]) -> float:
@@ -48,6 +51,9 @@ def _weighted_kl(records: list[DivergenceRecord]) -> float:
 
 
 def summarize(result: RunResult) -> Summary:
+    drop = None
+    if result.golden_accuracy is not None and result.test_accuracy is not None:
+        drop = result.golden_accuracy - result.test_accuracy
     return Summary(
         n_scored=len(result.records),
         divergence_rate=_divergence_rate(result.records),
@@ -55,6 +61,9 @@ def summarize(result: RunResult) -> Summary:
         mean_kl=_weighted_kl(result.records),
         floor_divergence_rate=_divergence_rate(result.floor_records),
         floor_mean_kl=_weighted_kl(result.floor_records),
+        golden_accuracy=result.golden_accuracy,
+        test_accuracy=result.test_accuracy,
+        accuracy_drop=drop,
     )
 
 
@@ -65,13 +74,20 @@ def verdict(summary: Summary, thresholds: Thresholds) -> bool:
     golden already diverges from itself (the noise floor). A run should not
     fail for divergence that the floor already explains. Compare that excess
     against thresholds.max_divergence_rate_above_floor.
+
+    A graded suite adds a second, independent failure criterion: if task
+    accuracy dropped too much, the run fails even when token divergence is
+    tolerable. Both criteria must hold to PASS.
     """
     excess = summary.divergence_rate - summary.floor_divergence_rate
+    divergence_ok = excess <= thresholds.max_divergence_rate_above_floor
 
-    if excess <= thresholds.max_divergence_rate_above_floor:
-        return True
-    else:
-        return False
+    accuracy_ok = (
+        summary.accuracy_drop is None
+        or summary.accuracy_drop <= thresholds.max_accuracy_drop
+    )
+
+    return divergence_ok and accuracy_ok
 
 
 def render_console(
@@ -91,6 +107,13 @@ def render_console(
         "mean top-k KL", f"{summary.mean_kl:.4f}", f"{summary.floor_mean_kl:.4f}"
     )
     table.add_row("argmax flip rate", f"{summary.argmax_flip_rate:.3f}", "-")
+    if summary.accuracy_drop is not None:
+        table.add_row(
+            "task accuracy",
+            f"{summary.test_accuracy:.3f}",
+            f"{summary.golden_accuracy:.3f} (golden)",
+        )
+        table.add_row("accuracy drop", f"{summary.accuracy_drop:+.3f}", "-")
     table.add_row("scored requests", str(summary.n_scored), "-")
     console.print(table)
     console.print(

@@ -11,11 +11,13 @@ from kvcheck.config import EngineConfig, RunConfig, SamplingConfig, SuiteConfig
 from kvcheck.report import render_console, summarize, verdict, write_json
 from kvcheck.runner import EngineFactory, run
 from kvcheck.suites.base import PromptSuite
+from kvcheck.suites.gsm8k import GSM8KSuite
 from kvcheck.suites.synthetic import SyntheticSuite
 
-# Suite registry. New suites (e.g. gsm8k) register here.
+# Suite registry. New suites register here.
 SUITES: dict[str, type[PromptSuite]] = {
     "synthetic": SyntheticSuite,
+    "gsm8k": GSM8KSuite,
 }
 
 
