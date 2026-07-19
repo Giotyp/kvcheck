@@ -39,10 +39,26 @@ def build_engine_factory(
     """
     if engine_cfg.adapter == "vllm":
 
-        def factory() -> "PromptSuite":  # noqa: F821 - EngineAdapter, lazy import below
+        def factory():
             from kvcheck.engines.vllm_inprocess import VLLMInProcess
 
             return VLLMInProcess(model=model, engine=engine_cfg, sampling=sampling)
+
+        return factory
+
+    if engine_cfg.adapter == "openai_server":
+
+        def factory():
+            from kvcheck.engines.openai_server import OpenAIServerAdapter
+
+            # port from extra["port"] if present, else default; base_url attaches
+            # to an already-running server instead of launching one.
+            port = int(engine_cfg.extra.get("port", 8000))
+            base_url = engine_cfg.extra.get("base_url")
+            return OpenAIServerAdapter(
+                model=model, engine=engine_cfg, sampling=sampling,
+                port=port, base_url=base_url,
+            )
 
         return factory
 

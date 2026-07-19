@@ -1,0 +1,39 @@
+# Smoke test for the OpenAI-server adapter: same prefix-cache on/off comparison,
+# but driven over HTTP against launched `vllm serve` subprocesses.
+#
+#   CUDA_VISIBLE_DEVICES=1 uv run kvcheck run examples/server_smoke.yaml
+
+model: Qwen/Qwen2.5-Coder-0.5B-Instruct
+
+sampling:
+  temperature: 0.0
+  seed: 1234
+  max_tokens: 64
+  top_logprobs: 5
+
+golden:
+  adapter: openai_server
+  enable_prefix_caching: false
+  extra:
+    port: 8001
+    gpu_memory_utilization: 0.4
+    max_model_len: 2048
+
+test:
+  adapter: openai_server
+  enable_prefix_caching: true
+  extra:
+    port: 8001
+    gpu_memory_utilization: 0.4
+    max_model_len: 2048
+
+suite:
+  name: synthetic
+  params:
+    num_groups: 3
+    questions_per_group: 3
+    prefix_words: 60
+    warmup: true
+
+thresholds:
+  max_divergence_rate_above_floor: 0.05
