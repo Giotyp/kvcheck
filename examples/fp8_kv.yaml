@@ -1,0 +1,45 @@
+# Quantized-KV run: does an fp8 KV cache change GSM8K outputs vs a full-precision
+# KV cache? Both configs have prefix caching OFF, so this isolates the effect of
+# fp8 KV quantization alone.
+#
+# golden/sampling/suite are identical to examples/gsm8k.yaml, so the golden run
+# is served from .kvcheck/cache (no re-run) — only the fp8 test config executes.
+#
+#   CUDA_VISIBLE_DEVICES=1 uv run kvcheck run examples/fp8_kv.yaml --json fp8_report.json
+
+model: Qwen/Qwen2.5-Math-1.5B-Instruct
+
+sampling:
+  temperature: 0.0
+  seed: 1234
+  max_tokens: 256
+  top_logprobs: 5
+  stop:
+    - "\nQuestion:"
+
+golden:
+  adapter: vllm
+  enable_prefix_caching: false
+  kv_cache_dtype: auto
+  extra:
+    gpu_memory_utilization: 0.85
+    max_model_len: 4096
+
+test:
+  adapter: vllm
+  enable_prefix_caching: false
+  kv_cache_dtype: fp8
+  extra:
+    gpu_memory_utilization: 0.85
+    max_model_len: 4096
+
+suite:
+  name: gsm8k
+  params:
+    num_questions: 50
+    num_fewshot: 4
+    warmup: true
+
+thresholds:
+  max_divergence_rate_above_floor: 0.05
+  max_accuracy_drop: 0.02

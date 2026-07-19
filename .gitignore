@@ -8,3 +8,4 @@ dist/
 .kvcheck/
 report.json
 gsm8k_report.json
+fp8_report.json
