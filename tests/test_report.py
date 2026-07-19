@@ -3,7 +3,7 @@ import json
 import pytest
 
 from kvcheck.config import Thresholds
-from kvcheck.report import Summary, summarize, verdict, write_json
+from kvcheck.report import summarize, verdict, write_json
 from kvcheck.runner import RunResult
 from kvcheck.types import Completion, DivergenceRecord
 
@@ -47,7 +47,10 @@ def test_summarize_accuracy_drop_none_when_ungraded():
 
 
 def test_summarize_divergence_rate():
-    records = [rec("a", exact=True), rec("b", exact=False), rec("c", exact=True), rec("d", exact=False)]
+    records = [
+        rec("a", exact=True), rec("b", exact=False),
+        rec("c", exact=True), rec("d", exact=False),
+    ]
     floor = [rec("a", exact=True), rec("b", exact=True), rec("c", exact=True), rec("d", exact=True)]
     s = summarize(make_result(records, floor))
     assert s.n_scored == 4
@@ -85,8 +88,10 @@ def test_divergence_far_above_floor_fails():
 
 def test_high_divergence_all_explained_by_floor_passes():
     # golden is itself nondeterministic: floor is also high. Excess ~ 0 -> PASS.
-    records = [rec("a", exact=False), rec("b", exact=False), rec("c", exact=True), rec("d", exact=True)]
-    floor = [rec("a", exact=False), rec("b", exact=False), rec("c", exact=True), rec("d", exact=True)]
+    diverge_ab = [rec("a", exact=False), rec("b", exact=False)]
+    same_cd = [rec("c", exact=True), rec("d", exact=True)]
+    records = diverge_ab + same_cd
+    floor = diverge_ab + same_cd
     s = summarize(make_result(records, floor))
     assert verdict(s, base_thresholds()) is True
 
