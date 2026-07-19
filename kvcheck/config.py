@@ -21,6 +21,7 @@ class SamplingConfig(BaseModel):
     seed: int = 1234
     max_tokens: int = 256
     top_logprobs: int = 5
+    stop: list[str] | None = None  # stop sequences, e.g. ["\nQuestion:"] for few-shot
 
 
 class EngineConfig(BaseModel):

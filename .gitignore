@@ -7,3 +7,4 @@ dist/
 .ruff_cache/
 .kvcheck/
 report.json
+gsm8k_report.json

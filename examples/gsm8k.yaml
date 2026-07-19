@@ -1,0 +1,41 @@
+# Graded end-to-end run: does prefix caching change GSM8K accuracy?
+#
+# The 4 few-shot examples form one long shared prefix across all questions, so
+# this both measures task accuracy AND exercises the prefix cache.
+#
+#   CUDA_VISIBLE_DEVICES=1 uv run kvcheck run examples/gsm8k.yaml --json gsm8k_report.json
+
+model: Qwen/Qwen2.5-Math-1.5B-Instruct
+
+sampling:
+  temperature: 0.0
+  seed: 1234
+  max_tokens: 256
+  top_logprobs: 5
+  stop:
+    - "\nQuestion:"
+
+golden:
+  adapter: vllm
+  enable_prefix_caching: false
+  extra:
+    gpu_memory_utilization: 0.85
+    max_model_len: 4096
+
+test:
+  adapter: vllm
+  enable_prefix_caching: true
+  extra:
+    gpu_memory_utilization: 0.85
+    max_model_len: 4096
+
+suite:
+  name: gsm8k
+  params:
+    num_questions: 50
+    num_fewshot: 4
+    warmup: true
+
+thresholds:
+  max_divergence_rate_above_floor: 0.05
+  max_accuracy_drop: 0.02

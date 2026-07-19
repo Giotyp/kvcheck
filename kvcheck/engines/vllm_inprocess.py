@@ -62,6 +62,7 @@ class VLLMInProcess(EngineAdapter):
             seed=sampling.seed,
             max_tokens=sampling.max_tokens,
             logprobs=sampling.top_logprobs,
+            stop=sampling.stop,
         )
         prompts = [r.prompt for r in requests]
         # vLLM returns outputs in input order; we still re-key by index to be explicit.

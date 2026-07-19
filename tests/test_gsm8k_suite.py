@@ -26,6 +26,12 @@ def test_extract_final_number_from_model_output():
     assert extract_final_number("no digits here") is None
 
 
+def test_extract_prefers_first_hashes_answer_when_model_rambles():
+    # model answers this question, then hallucinates a follow-up Q&A
+    text = "reasoning\n#### 600\n\nQuestion: another?\nAnswer: stuff\n#### 192"
+    assert extract_final_number(text) == "600"
+
+
 def test_is_a_prompt_suite():
     assert isinstance(make(), PromptSuite)
 

@@ -23,7 +23,18 @@ def extract_gold(answer: str) -> str:
 
 
 def extract_final_number(text: str) -> str | None:
-    """The model's predicted answer: the last number it emits, comma-stripped."""
+    """The model's predicted answer, comma-stripped.
+
+    Prefer the number right after the first '####' — the answer to *this*
+    question. Without a stop sequence the model often rambles on with
+    hallucinated follow-up Q&A, so the last number in the text is unreliable.
+    Fall back to the last number when there is no '####' marker.
+    """
+    if "####" in text:
+        after = text.split("####", 1)[1]
+        m = _NUMBER.search(after)
+        if m:
+            return m.group().replace(",", "")
     matches = _NUMBER.findall(text)
     if not matches:
         return None
