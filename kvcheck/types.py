@@ -33,3 +33,23 @@ class Completion:
     token_ids: tuple[int, ...]
     top_logprobs: tuple[dict[int, float], ...] = field(default=())
     finish_reason: str = "stop"
+
+
+@dataclass(frozen=True)
+class DivergenceRecord:
+    """Per-request comparison of a test completion against its golden completion.
+
+    Token-level fields only cover *comparable* positions — those whose entire
+    preceding context is identical in both runs. Once the emitted tokens differ
+    at `first_divergence_index`, every later position has a different context,
+    so comparing distributions there is meaningless.
+    """
+
+    request_id: str
+    exact_match: bool
+    first_divergence_index: int  # first position where token_ids differ; == common length if none
+    n_comparable: int  # positions with identical preceding context
+    argmax_flips: int  # comparable positions whose top-1 token differs
+    mean_kl: float  # mean top-k KL over comparable positions (0.0 if none)
+    golden_len: int
+    test_len: int
