@@ -1,0 +1,42 @@
+# End-to-end kvcheck run: does turning on prefix caching change vLLM's output?
+#
+# golden = prefix caching OFF (full recompute, the trusted baseline)
+# test   = prefix caching ON  (reuses cached KV for shared prefixes)
+#
+# Run on a single free GPU, e.g.:
+#   CUDA_VISIBLE_DEVICES=1 uv run kvcheck run examples/prefix_cache.yaml --json report.json
+
+model: Qwen/Qwen2.5-Coder-1.5B-Instruct
+
+sampling:
+  temperature: 0.0
+  seed: 1234
+  max_tokens: 128
+  top_logprobs: 5
+
+golden:
+  adapter: vllm
+  enable_prefix_caching: false
+  extra:
+    gpu_memory_utilization: 0.85
+    max_model_len: 4096
+
+test:
+  adapter: vllm
+  enable_prefix_caching: true
+  extra:
+    gpu_memory_utilization: 0.85
+    max_model_len: 4096
+
+suite:
+  name: synthetic
+  params:
+    num_groups: 8
+    questions_per_group: 6
+    prefix_words: 800
+    seed: 1234
+    warmup: true
+
+thresholds:
+  max_divergence_rate_above_floor: 0.05
+  max_accuracy_drop: 0.02
