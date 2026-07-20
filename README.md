@@ -30,11 +30,19 @@ these engines (batch composition, FP reduction order). kvcheck fails a run only
 when the test config diverges **beyond** what golden already diverges from
 itself.
 
+## Install
+
+Not on PyPI yet — install from source. Optional extras pull heavy backends only
+when you need them: `vllm`, `server`, `gsm8k`, `lm_eval`.
+
+```bash
+git clone <repo-url> kvcheck && cd kvcheck
+pip install -e ".[vllm]"
+```
+
 ## Quickstart
 
 ```bash
-pip install "kvcheck[vllm]"
-
 # golden = prefix caching off, test = prefix caching on
 CUDA_VISIBLE_DEVICES=0 kvcheck run examples/prefix_cache.yaml --json report.json
 echo $?     # 0 = pass, 1 = fail (CI-friendly)
@@ -103,7 +111,7 @@ thresholds: { max_divergence_rate_above_floor: 0.05, max_accuracy_drop: 0.02 }
 |---|---|
 | `synthetic` | generated shared-prefix groups — controlled conditions that force cache reuse |
 | `gsm8k` | GSM8K subset; few-shot examples form the shared prefix, so it grades accuracy *and* exercises the cache |
-| `lm_eval` | any lm-evaluation-harness **generative** task (`generate_until`) — borrows the task's prompt + grading; `params: {task, num_fewshot, limit}`. Needs `pip install "kvcheck[lm_eval]"` |
+| `lm_eval` | any lm-evaluation-harness **generative** task (`generate_until`) — borrows the task's prompt + grading; `params: {task, num_fewshot, limit}`. Needs the `lm_eval` extra (`pip install -e ".[lm_eval]"`) |
 
 Multiple-choice lm-eval tasks (scored by loglikelihood ranking) are out of
 scope for the `lm_eval` suite — kvcheck compares generated token sequences, so it
@@ -149,3 +157,7 @@ uv run ruff check kvcheck/
 The architecture keeps engines, suites, and metrics behind small interfaces
 (`EngineAdapter`, `PromptSuite`), so the whole pipeline is testable without a
 GPU via `FakeEngine` and a mock OpenAI server.
+
+## License
+
+Apache-2.0 — see [LICENSE](LICENSE).
