@@ -1,6 +1,8 @@
+import json
+
 import pytest
 
-from kvcheck.cli import build_suite, execute
+from kvcheck.cli import build_suite, execute, main, run_report
 from kvcheck.config import EngineConfig, RunConfig, SamplingConfig, SuiteConfig, Thresholds
 from kvcheck.engines.fake import FakeEngine
 from kvcheck.suites.synthetic import SyntheticSuite
@@ -73,3 +75,42 @@ def test_execute_writes_json_artifact(tmp_path):
         make_test=lambda: FakeEngine(scripts, "v1"),
     )
     assert out.exists()
+
+
+def _report(path, divergence_rate, floor=0.0, test_acc=0.6, drop=0.0):
+    path.write_text(json.dumps({
+        "passed": True,
+        "summary": {
+            "n_scored": 50, "divergence_rate": divergence_rate,
+            "argmax_flip_rate": 0.01, "mean_kl": 0.005,
+            "floor_divergence_rate": floor, "floor_mean_kl": 0.001,
+            "golden_accuracy": 0.6, "test_accuracy": test_acc, "accuracy_drop": drop,
+        },
+    }))
+
+
+def test_report_single_returns_zero(tmp_path):
+    r = tmp_path / "r.json"
+    _report(r, 0.2)
+    assert run_report(str(r), None, tol=0.05) == 0
+
+
+def test_report_compare_flags_regression(tmp_path):
+    base, cur = tmp_path / "base.json", tmp_path / "cur.json"
+    _report(base, 0.2)
+    _report(cur, 0.5)  # divergence excess jumped
+    assert run_report(str(cur), str(base), tol=0.05) == 1
+
+
+def test_report_compare_ok_when_stable(tmp_path):
+    base, cur = tmp_path / "base.json", tmp_path / "cur.json"
+    _report(base, 0.2)
+    _report(cur, 0.21)
+    assert run_report(str(cur), str(base), tol=0.05) == 0
+
+
+def test_main_report_compare_exit_code(tmp_path):
+    base, cur = tmp_path / "base.json", tmp_path / "cur.json"
+    _report(base, 0.2)
+    _report(cur, 0.5)
+    assert main(["report", str(cur), "--compare", str(base)]) == 1

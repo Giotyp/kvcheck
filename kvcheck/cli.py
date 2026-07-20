@@ -5,10 +5,12 @@ prints a report and returns an exit code (0 pass / 1 fail) for CI.
 """
 
 import argparse
+import json
 from pathlib import Path
 
+from kvcheck.compare import compare_reports, render_comparison
 from kvcheck.config import EngineConfig, RunConfig, SamplingConfig, SuiteConfig
-from kvcheck.report import render_console, summarize, verdict, write_json
+from kvcheck.report import Summary, render_console, summarize, verdict, write_json
 from kvcheck.runner import EngineFactory, run
 from kvcheck.suites.base import PromptSuite
 from kvcheck.suites.gsm8k import GSM8KSuite
@@ -90,6 +92,22 @@ def execute(
     return 0 if passed else 1
 
 
+def run_report(report_path: str, baseline_path: str | None, tol: float) -> int:
+    """Inspect one report, or compare it against a baseline for regressions.
+
+    Returns 1 when a regression is detected (CI-friendly), else 0.
+    """
+    current = json.loads(Path(report_path).read_text())
+    if baseline_path is None:
+        summary = Summary(**current["summary"])
+        render_console(summary, passed=current.get("passed", True))
+        return 0
+    baseline = json.loads(Path(baseline_path).read_text())
+    comparison = compare_reports(baseline, current, tol=tol)
+    render_comparison(comparison, tol=tol)
+    return 1 if comparison.regressed else 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="kvcheck")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -99,7 +117,18 @@ def main(argv: list[str] | None = None) -> int:
     runp.add_argument("--cache-dir", default=".kvcheck/cache")
     runp.add_argument("--json", dest="json_path", default=None, help="write report JSON here")
 
+    repp = sub.add_parser("report", help="inspect or compare saved report JSON files")
+    repp.add_argument("report", help="path to a report.json")
+    repp.add_argument(
+        "--compare", metavar="BASELINE",
+        help="path to a baseline report.json; flags regressions against it",
+    )
+    repp.add_argument("--tol", type=float, default=0.05, help="regression tolerance")
+
     args = parser.parse_args(argv)
+
+    if args.command == "report":
+        return run_report(args.report, args.compare, args.tol)
 
     config = RunConfig.from_yaml(args.config)
     make_golden = build_engine_factory(

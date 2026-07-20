@@ -40,6 +40,15 @@ CUDA_VISIBLE_DEVICES=0 kvcheck run examples/prefix_cache.yaml --json report.json
 echo $?     # 0 = pass, 1 = fail (CI-friendly)
 ```
 
+**Cross-commit regression tracking** — compare a new report against a committed
+baseline; exit code 1 if any metric regressed beyond `--tol`:
+
+```bash
+kvcheck report report.json --compare baseline_report.json --tol 0.05
+```
+
+`kvcheck report report.json` (no `--compare`) just re-renders a saved report.
+
 Example output (GSM8K, prefix cache on vs off, Qwen2.5-Math-1.5B):
 
 ```
