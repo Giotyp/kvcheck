@@ -95,9 +95,34 @@ thresholds: { max_divergence_rate_above_floor: 0.05, max_accuracy_drop: 0.02 }
 | `synthetic` | generated shared-prefix groups — controlled conditions that force cache reuse |
 | `gsm8k` | GSM8K subset; few-shot examples form the shared prefix, so it grades accuracy *and* exercises the cache |
 
+Golden and test may use **different model checkpoints** via a per-side
+`model:` override on either engine (e.g. golden = original model, test = a
+quantized checkpoint). When only the test side changes, the cached golden is
+reused.
+
 The golden run is cached on disk under a key derived from
 `(model, sampling, golden config, suite, engine version)`, so iterating on the
 test config skips the golden re-run.
+
+## Recipe: does fp8-KV calibration recover accuracy?
+
+kvcheck found that naive fp8 KV cache (and vLLM's runtime `calculate_kv_scales`)
+collapse GSM8K accuracy to ~0 on Qwen2.5-Math-1.5B. To test whether *proper*
+offline calibration recovers it, produce a calibrated checkpoint and compare:
+
+```bash
+pip install llmcompressor
+python scripts/calibrate_fp8_kv.py \
+    --model Qwen/Qwen2.5-Math-1.5B-Instruct \
+    --output ./checkpoints/qwen-math-1.5b-fp8kv
+
+# golden = original model (auto KV, reused from cache); test = calibrated fp8 checkpoint
+kvcheck run examples/fp8_kv_offline_calibrated.yaml --json fp8off_report.json
+```
+
+`scripts/calibrate_fp8_kv.py` uses llm-compressor to embed static per-layer
+`k_scale`/`v_scale` into the checkpoint (the static equivalent of what
+`calculate_kv_scales` only approximates at runtime).
 
 ## Development
 

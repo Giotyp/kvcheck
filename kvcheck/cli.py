@@ -21,6 +21,11 @@ SUITES: dict[str, type[PromptSuite]] = {
 }
 
 
+def resolve_model(config: RunConfig, engine_cfg: EngineConfig) -> str:
+    """Model for one side: the engine's own override, else the run's model."""
+    return engine_cfg.model or config.model
+
+
 def build_suite(suite_cfg: SuiteConfig) -> PromptSuite:
     try:
         cls = SUITES[suite_cfg.name]
@@ -97,8 +102,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     config = RunConfig.from_yaml(args.config)
-    make_golden = build_engine_factory(config.model, config.golden, config.sampling)
-    make_test = build_engine_factory(config.model, config.test, config.sampling)
+    make_golden = build_engine_factory(
+        resolve_model(config, config.golden), config.golden, config.sampling
+    )
+    make_test = build_engine_factory(
+        resolve_model(config, config.test), config.test, config.sampling
+    )
     return execute(config, args.cache_dir, args.json_path, make_golden, make_test)
 
 

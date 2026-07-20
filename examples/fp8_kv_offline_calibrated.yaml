@@ -1,0 +1,54 @@
+# Offline-calibrated fp8 run: does PROPER per-layer KV calibration recover the
+# accuracy that naive fp8 (and runtime calculate_kv_scales) both destroyed?
+#
+# Prerequisite — produce the calibrated checkpoint on a connected machine first:
+#   pip install llmcompressor
+#   python scripts/calibrate_fp8_kv.py \
+#       --model Qwen/Qwen2.5-Math-1.5B-Instruct \
+#       --output ./checkpoints/qwen-math-1.5b-fp8kv
+#
+# Then run (golden reuses the cached auto-KV run; only the calibrated test runs):
+#   CUDA_VISIBLE_DEVICES=1 kvcheck run examples/fp8_kv_offline_calibrated.yaml --json fp8off_report.json
+#
+# golden.model is the ORIGINAL model (auto KV); test.model points at the
+# calibrated checkpoint (fp8 KV, embedded static k/v scales). sampling/suite are
+# identical to gsm8k.yaml so the golden_key matches and the golden is reused.
+
+model: Qwen/Qwen2.5-Math-1.5B-Instruct  # default / golden side
+
+sampling:
+  temperature: 0.0
+  seed: 1234
+  max_tokens: 256
+  top_logprobs: 5
+  stop:
+    - "\nQuestion:"
+
+golden:
+  adapter: vllm
+  enable_prefix_caching: false
+  kv_cache_dtype: auto
+  extra:
+    gpu_memory_utilization: 0.85
+    max_model_len: 4096
+
+test:
+  adapter: vllm
+  # per-side override: the calibrated checkpoint produced by calibrate_fp8_kv.py
+  model: ./checkpoints/qwen-math-1.5b-fp8kv
+  enable_prefix_caching: false
+  kv_cache_dtype: fp8
+  extra:
+    gpu_memory_utilization: 0.85
+    max_model_len: 4096
+
+suite:
+  name: gsm8k
+  params:
+    num_questions: 50
+    num_fewshot: 4
+    warmup: true
+
+thresholds:
+  max_divergence_rate_above_floor: 0.05
+  max_accuracy_drop: 0.02

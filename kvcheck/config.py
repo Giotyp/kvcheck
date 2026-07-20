@@ -26,6 +26,7 @@ class SamplingConfig(BaseModel):
 
 class EngineConfig(BaseModel):
     adapter: Literal["vllm", "openai_server", "fake"]
+    model: str | None = None  # overrides RunConfig.model for this side only
     enable_prefix_caching: bool = False
     kv_cache_dtype: str = "auto"
     extra: dict[str, Any] = Field(default_factory=dict)  # passthrough engine args
