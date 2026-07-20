@@ -1,0 +1,49 @@
+# Calibrated-fp8 run: does computing per-tensor KV scales recover the accuracy
+# that naive fp8 (fixed scale=1.0) destroyed?
+#
+# Same as examples/fp8_kv.yaml, but the test config adds calculate_kv_scales: true,
+# which makes vLLM derive fp8 k/v scaling factors from real activations instead
+# of the default scale of 1.0.
+#
+# golden/sampling/suite are byte-identical to gsm8k.yaml/fp8_kv.yaml, so the
+# golden run is served from .kvcheck/cache — only the calibrated-fp8 test runs.
+#
+#   CUDA_VISIBLE_DEVICES=1 uv run kvcheck run examples/fp8_kv_calibrated.yaml --json fp8cal_report.json
+
+model: Qwen/Qwen2.5-Math-1.5B-Instruct
+
+sampling:
+  temperature: 0.0
+  seed: 1234
+  max_tokens: 256
+  top_logprobs: 5
+  stop:
+    - "\nQuestion:"
+
+golden:
+  adapter: vllm
+  enable_prefix_caching: false
+  kv_cache_dtype: auto
+  extra:
+    gpu_memory_utilization: 0.85
+    max_model_len: 4096
+
+test:
+  adapter: vllm
+  enable_prefix_caching: false
+  kv_cache_dtype: fp8
+  extra:
+    gpu_memory_utilization: 0.85
+    max_model_len: 4096
+    calculate_kv_scales: true
+
+suite:
+  name: gsm8k
+  params:
+    num_questions: 50
+    num_fewshot: 4
+    warmup: true
+
+thresholds:
+  max_divergence_rate_above_floor: 0.05
+  max_accuracy_drop: 0.02
