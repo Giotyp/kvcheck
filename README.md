@@ -4,10 +4,10 @@ Detect output-quality divergence caused by **KV-cache reuse and approximation**
 in LLM inference engines (vLLM, SGLang, LMCache).
 
 Engines reuse and approximate the KV cache for speed — prefix caching,
-CacheBlend-style approximate reuse, fp8/int4 KV. These optimizations can
-silently change a model's output, sometimes degrading task accuracy (see e.g.
-vLLM #18055, #43559, #40896; SGLang #23020). kvcheck measures that change and
-turns it into a CI-friendly pass/fail.
+CacheBlend-style approximate reuse, fp8/int4 KV. These optimizations are meant to
+be transparent, but they can silently change a model's output and sometimes
+degrade task accuracy. kvcheck measures that change and turns it into a
+CI-friendly pass/fail.
 
 ## How it works
 
