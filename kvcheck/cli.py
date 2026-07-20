@@ -6,6 +6,7 @@ prints a report and returns an exit code (0 pass / 1 fail) for CI.
 
 import argparse
 import json
+from collections.abc import Callable
 from pathlib import Path
 
 from kvcheck.compare import compare_reports, render_comparison
@@ -14,12 +15,15 @@ from kvcheck.report import Summary, render_console, summarize, verdict, write_js
 from kvcheck.runner import EngineFactory, run
 from kvcheck.suites.base import PromptSuite
 from kvcheck.suites.gsm8k import GSM8KSuite
+from kvcheck.suites.lm_eval import LMEvalSuite
 from kvcheck.suites.synthetic import SyntheticSuite
 
-# Suite registry. New suites register here.
-SUITES: dict[str, type[PromptSuite]] = {
+# Suite registry: name -> factory called with the config's suite params.
+# Most map to a class; lm_eval maps to a builder that constructs from a live task.
+SUITES: dict[str, Callable[..., PromptSuite]] = {
     "synthetic": SyntheticSuite,
     "gsm8k": GSM8KSuite,
+    "lm_eval": LMEvalSuite.from_task_name,
 }
 
 
@@ -30,10 +34,10 @@ def resolve_model(config: RunConfig, engine_cfg: EngineConfig) -> str:
 
 def build_suite(suite_cfg: SuiteConfig) -> PromptSuite:
     try:
-        cls = SUITES[suite_cfg.name]
+        factory = SUITES[suite_cfg.name]
     except KeyError as e:
         raise SystemExit(f"unknown suite: {suite_cfg.name!r}") from e
-    return cls(**suite_cfg.params)
+    return factory(**suite_cfg.params)
 
 
 def build_engine_factory(

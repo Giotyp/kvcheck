@@ -103,6 +103,11 @@ thresholds: { max_divergence_rate_above_floor: 0.05, max_accuracy_drop: 0.02 }
 |---|---|
 | `synthetic` | generated shared-prefix groups — controlled conditions that force cache reuse |
 | `gsm8k` | GSM8K subset; few-shot examples form the shared prefix, so it grades accuracy *and* exercises the cache |
+| `lm_eval` | any lm-evaluation-harness **generative** task (`generate_until`) — borrows the task's prompt + grading; `params: {task, num_fewshot, limit}`. Needs `pip install "kvcheck[lm_eval]"` |
+
+Multiple-choice lm-eval tasks (scored by loglikelihood ranking) are out of
+scope for the `lm_eval` suite — kvcheck compares generated token sequences, so it
+targets generative tasks.
 
 Golden and test may use **different model checkpoints** via a per-side
 `model:` override on either engine (e.g. golden = original model, test = a

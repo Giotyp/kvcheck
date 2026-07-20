@@ -1,0 +1,44 @@
+# Run any lm-evaluation-harness generative task through kvcheck.
+#
+# Requires lm-eval:  pip install "kvcheck[lm_eval]"   (or: pip install lm-eval)
+#
+# This uses lm-eval's own gsm8k task definition (prompt + grading), routed
+# through kvcheck's golden/test engines. Swap `task:` for any generate_until
+# task — gsm8k, gsm8k_cot, drop, gpqa_*_generative, etc.
+#
+#   CUDA_VISIBLE_DEVICES=1 kvcheck run examples/lm_eval_gsm8k.yaml --json lmeval_report.json
+
+model: Qwen/Qwen2.5-Math-1.5B-Instruct
+
+sampling:
+  temperature: 0.0
+  seed: 1234
+  max_tokens: 256
+  top_logprobs: 5
+  stop:
+    - "\nQuestion:"
+
+golden:
+  adapter: vllm
+  enable_prefix_caching: false
+  extra:
+    gpu_memory_utilization: 0.85
+    max_model_len: 4096
+
+test:
+  adapter: vllm
+  enable_prefix_caching: true
+  extra:
+    gpu_memory_utilization: 0.85
+    max_model_len: 4096
+
+suite:
+  name: lm_eval
+  params:
+    task: gsm8k
+    num_fewshot: 4
+    limit: 50
+
+thresholds:
+  max_divergence_rate_above_floor: 0.05
+  max_accuracy_drop: 0.02

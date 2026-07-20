@@ -15,6 +15,7 @@ dependencies = [
 vllm = ["vllm>=0.8"]
 server = ["openai>=1.0"]
 gsm8k = ["datasets>=2.0"]
+lm_eval = ["lm-eval>=0.4"]
 
 [project.scripts]
 kvcheck = "kvcheck.cli:main"
