@@ -126,11 +126,13 @@ The golden run is cached on disk under a key derived from
 `(model, sampling, golden config, suite, engine version)`, so iterating on the
 test config skips the golden re-run.
 
-## Recipe: does fp8-KV calibration recover accuracy?
+## Recipe: fp8-KV — is it the calibration, or the layers?
 
-kvcheck found that naive fp8 KV cache (and vLLM's runtime `calculate_kv_scales`)
-collapse GSM8K accuracy to ~0 on Qwen2.5-Math-1.5B. To test whether *proper*
-offline calibration recovers it, produce a calibrated checkpoint and compare:
+kvcheck found that an fp8 KV cache collapses GSM8K accuracy to ~0 on
+Qwen2.5-Math-1.5B — and that **no** static per-tensor calibration recovers it:
+naive `scale=1.0`, vLLM's runtime `calculate_kv_scales`, and offline
+llm-compressor calibration all stay at ~0%. Produce a calibrated checkpoint and
+see for yourself:
 
 ```bash
 pip install llmcompressor
@@ -145,6 +147,20 @@ kvcheck run examples/fp8_kv_offline_calibrated.yaml --json fp8off_report.json
 `scripts/calibrate_fp8_kv.py` uses llm-compressor to embed static per-layer
 `k_scale`/`v_scale` into the checkpoint (the static equivalent of what
 `calculate_kv_scales` only approximates at runtime).
+
+The damage turns out to be **localized to a single layer**. A mixed-precision
+sweep — full precision on chosen layers, fp8 on the rest, via vLLM's
+`kv_cache_dtype_skip_layers` — shows that keeping just **layer 0**'s KV cache at
+full precision fully recovers accuracy (60% → ~60%), while an equal-size mid-stack
+control (layers 12/13/14) recovers nothing:
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python scripts/sweep_kv_skip_layers.py
+```
+
+So for this model the fix is not finer calibration — it is full precision on 1 of
+28 layers (the first block's attention-sink / massive-activation cache), which
+fp8-quantizes the remaining 27 for free.
 
 ## Development
 
