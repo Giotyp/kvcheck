@@ -38,14 +38,34 @@ class VLLMInProcess(EngineAdapter):
         )
 
     def stop(self) -> None:
-        # Release the engine; free GPU memory held by the KV cache and weights.
+        # Release the engine and free GPU memory *synchronously*, so a second
+        # engine (the test side) can be constructed on the same GPU right after
+        # the golden side runs. vLLM v1 runs EngineCore in a child process:
+        # dropping the Python handle and calling torch.cuda.empty_cache() only
+        # touch the parent's CUDA context and do NOT free the child's memory,
+        # which made the test engine fail with "No available memory for the
+        # cache blocks". Shut the engine core down explicitly (terminates the
+        # child), then tear down any distributed state and empty the allocator.
+        llm = self._llm
         self._llm = None
+        if llm is not None:
+            try:
+                llm.llm_engine.engine_core.shutdown()
+            except Exception:
+                pass
+        del llm
         import gc
 
         gc.collect()
         try:
             import torch
+            from vllm.distributed.parallel_state import (
+                destroy_distributed_environment,
+                destroy_model_parallel,
+            )
 
+            destroy_model_parallel()
+            destroy_distributed_environment()
             torch.cuda.empty_cache()
         except Exception:
             pass
