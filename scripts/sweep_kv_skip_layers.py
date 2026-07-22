@@ -35,24 +35,29 @@ SCRATCH = Path(
     )
 )
 GPU = os.environ.get("CUDA_VISIBLE_DEVICES", "1")
+# Override the model on both golden and test sides (for cross-model sweeps);
+# golden_key includes the model, so each model caches its own golden.
+MODEL_OVERRIDE = os.environ.get("KVSWEEP_MODEL")
 
 
 # Each entry is (label, [layer-index strings kept at FULL precision]); every
 # other layer is fp8. An empty list [] means "skip nothing" = the pure-fp8
-# baseline (expected ~0% accuracy).
-# The massive-activation / attention-sink layers found earlier are 0, 1, 7.
+# baseline (expected ~0% accuracy for an fp8-sensitive model).
+# For Qwen2.5-Math-1.5B the damage localizes to layer 0; other models may have a
+# different culprit layer, so cross-model sweeps probe the first few layers.
 SKIP_SETS: list[tuple[str, list[str]]] = [
-    # Minimal-set decomposition: which single layer(s) carry the recovery?
-    ("skip-0-1", ["0", "1"]),
+    ("baseline-pure-fp8", []),
     ("skip-0", ["0"]),
     ("skip-1", ["1"]),
-    ("skip-7", ["7"]),
+    ("skip-2", ["2"]),
 ]
 
 
 def run_one(label: str, skip_layers: list[str]) -> dict | None:
     """Run one skip-set via the CLI in a fresh subprocess; return its summary."""
     cfg = yaml.safe_load(BASE_CONFIG.read_text())
+    if MODEL_OVERRIDE:
+        cfg["model"] = MODEL_OVERRIDE
     cfg["test"].setdefault("extra", {})
     cfg["test"]["extra"]["kv_cache_dtype_skip_layers"] = list(skip_layers)
 
