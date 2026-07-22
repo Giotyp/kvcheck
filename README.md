@@ -163,9 +163,11 @@ So for this model the fix is not finer calibration — it is full precision on 1
 fp8-quantizes the remaining 27 for free.
 
 Sweep other models with `KVSWEEP_MODEL=<hf-id> python scripts/sweep_kv_skip_layers.py`.
-The catastrophe is not universal: it reproduces on Qwen2.5-Coder-1.5B (same
-architecture, layer 0 again the culprit) but Llama-3.1-8B-Instruct shows no fp8-KV
-accuracy loss at all — the vulnerability is specific to the small Qwen2.5 models.
+Across five cached models the layer-0 catastrophe is a training-independent
+property of the **1.5B Qwen2.5 architecture**: all three 1.5B Qwen2.5 models —
+math (Qwen2.5-Math), code (Qwen2.5-Coder), and reasoning (DeepSeek-R1-Distill) —
+collapse under fp8 KV and fully recover with layer 0 alone. It is not monotonic in
+size: Qwen2.5-Coder-0.5B and Llama-3.1-8B-Instruct show no fp8-KV loss at all.
 
 ## Development
 
